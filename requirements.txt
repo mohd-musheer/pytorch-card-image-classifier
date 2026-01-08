@@ -1,0 +1,11 @@
+--extra-index-url https://download.pytorch.org/whl/cpu
+fastapi
+uvicorn
+pydantic
+scikit-learn
+pandas
+torch==2.4.0+cpu
+torchvision
+timm
+pillow
+python-multipart

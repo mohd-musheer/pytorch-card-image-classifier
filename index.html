@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Card Classifier</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center p-6">
+    <div class="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full text-center">
+        <h1 class="text-2xl font-bold text-gray-800 mb-6">🃏 Card Classifier AI</h1>
+        
+        <form action="/" method="post" enctype="multipart/form-data" class="space-y-4">
+            <div class="flex items-center justify-center w-full">
+                <label class="flex flex-col w-full h-32 border-4 border-dashed border-blue-200 hover:bg-gray-50 hover:border-gray-300 transition-colors cursor-pointer">
+                    <div class="flex flex-col items-center justify-center pt-7">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 text-gray-400 group-hover:text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                        </svg>
+                        <p class="pt-1 text-sm tracking-wider text-gray-400 group-hover:text-gray-600">Select card photo</p>
+                    </div>
+                    <input type="file" name="file" class="opacity-0" accept="image/*" onchange="previewImage(event)" required />
+                </label>
+            </div>
+
+            <div id="preview-container" class="hidden">
+                <img id="image-preview" class="mx-auto h-48 rounded-lg shadow-md mb-4" src="#" alt="Preview">
+            </div>
+
+            <button type="submit" class="w-full bg-blue-600 text-white py-2 rounded-lg font-semibold hover:bg-blue-700 transition-colors">
+                Identify Card
+            </button>
+        </form>
+
+        <hr class="my-8 border-gray-200">
+
+        <div class="py-4">
+            <h2 class="text-sm uppercase tracking-widest text-gray-500 font-semibold">Prediction Result</h2>
+            <p id="result" class="text-2xl font-extrabold text-blue-600 mt-2">
+                {{prediction}}
+            </p>
+        </div>
+    </div>
+
+    <script>
+        function previewImage(event) {
+            const reader = new FileReader();
+            reader.onload = function() {
+                const output = document.getElementById('image-preview');
+                const container = document.getElementById('preview-container');
+                output.src = reader.result;
+                container.classList.remove('hidden');
+            };
+            reader.readAsDataURL(event.target.files[0]);
+        }
+    </script>
+</body>
+</html>
