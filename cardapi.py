@@ -1,5 +1,6 @@
-from fastapi import FastAPI, File, UploadFile, Request
-from fastapi.responses import HTMLResponse
+from fastapi import FastAPI, File, UploadFile
+from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 import torch
 import torch.nn as nn
 import torchvision.transforms as transforms
@@ -10,83 +11,74 @@ import os
 
 app = FastAPI()
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class SimpleCardClassifier(nn.Module):
-    def __init__(self, num_classes):
+    def __init__(self, num_classes=53):
         super().__init__()
-        self.model = timm.create_model(
+        self.base = timm.create_model(
             "efficientnet_b0",
             pretrained=False,
             num_classes=num_classes
         )
 
     def forward(self, x):
-        return self.model(x)
+        return self.base(x)
 
-# Initialize and load model
-NUM_CLASSES = 53
-model = SimpleCardClassifier(NUM_CLASSES)
+model = SimpleCardClassifier(53)
 
-# Check if model exists before loading
-MODEL_PATH = "card_model.pth"
-if os.path.exists(MODEL_PATH):
-    model.load_state_dict(torch.load(MODEL_PATH, map_location=device))
-else:
-    print(f"Warning: {MODEL_PATH} not found. Running with uninitialized weights.")
+if os.path.exists("card_model.pth"):
+    model.load_state_dict(torch.load("card_model.pth", map_location=device))
 
 model.to(device)
 model.eval()
 
-target_to_class = {
-    0: 'ace of clubs', 1: 'ace of diamonds', 2: 'ace of hearts', 3: 'ace of spades',
-    4: 'eight of clubs', 5: 'eight of diamonds', 6: 'eight of hearts', 7: 'eight of spades',
-    8: 'five of clubs', 9: 'five of diamonds', 10: 'five of hearts', 11: 'five of spades',
-    12: 'four of clubs', 13: 'four of diamonds', 14: 'four of hearts', 15: 'four of spades',
-    16: 'jack of clubs', 17: 'jack of diamonds', 18: 'jack of hearts', 19: 'jack of spades',
-    20: 'joker',
-    21: 'king of clubs', 22: 'king of diamonds', 23: 'king of hearts', 24: 'king of spades',
-    25: 'nine of clubs', 26: 'nine of diamonds', 27: 'nine of hearts', 28: 'nine of spades',
-    29: 'queen of clubs', 30: 'queen of diamonds', 31: 'queen of hearts', 32: 'queen of spades',
-    33: 'seven of clubs', 34: 'seven of diamonds', 35: 'seven of hearts', 36: 'seven of spades',
-    37: 'six of clubs', 38: 'six of diamonds', 39: 'six of hearts', 40: 'six of spades',
-    41: 'ten of clubs', 42: 'ten of diamonds', 43: 'ten of hearts', 44: 'ten of spades',
-    45: 'three of clubs', 46: 'three of diamonds', 47: 'three of hearts', 48: 'three of spades',
-    49: 'two of clubs', 50: 'two of diamonds', 51: 'two of hearts', 52: 'two of spades'
-}
+target_to_class = [
+    'ace of clubs','ace of diamonds','ace of hearts','ace of spades',
+    'eight of clubs','eight of diamonds','eight of hearts','eight of spades',
+    'five of clubs','five of diamonds','five of hearts','five of spades',
+    'four of clubs','four of diamonds','four of hearts','four of spades',
+    'jack of clubs','jack of diamonds','jack of hearts','jack of spades',
+    'joker','king of clubs','king of diamonds','king of hearts','king of spades',
+    'nine of clubs','nine of diamonds','nine of hearts','nine of spades',
+    'queen of clubs','queen of diamonds','queen of hearts','queen of spades',
+    'seven of clubs','seven of diamonds','seven of hearts','seven of spades',
+    'six of clubs','six of diamonds','six of hearts','six of spades',
+    'ten of clubs','ten of diamonds','ten of hearts','ten of spades',
+    'three of clubs','three of diamonds','three of hearts','three of spades',
+    'two of clubs','two of diamonds','two of hearts','two of spades'
+]
 
-# Added Normalization (standard for EfficientNet)
 transform = transforms.Compose([
     transforms.Resize((128, 128)),
-    transforms.ToTensor(),
-    transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+    transforms.ToTensor()
 ])
-
-def get_html_content():
-    with open("index.html", "r") as f:
-        return f.read()
 
 @app.get("/", response_class=HTMLResponse)
 async def index():
-    # Show "Ready for upload" instead of the raw placeholder on first load
-    return get_html_content().replace("{{prediction}}", "Waiting for image...")
+    with open("index.html", "r") as f:
+        return f.read()
 
-@app.post("/", response_class=HTMLResponse)
+@app.post("/predict")
 async def predict(file: UploadFile = File(...)):
-    try:
-        image_bytes = await file.read()
-        image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
-        
-        # Preprocess and Predict
-        input_tensor = transform(image).unsqueeze(0).to(device)
-        
-        with torch.no_grad():
-            outputs = model(input_tensor)
-            _, pred = torch.max(outputs, 1)
-        
-        prediction = target_to_class.get(pred.item(), "Unknown Card")
-        
-    except Exception as e:
-        prediction = f"Error processing image: {str(e)}"
+    image_bytes = await file.read()
+    image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+    image_tensor = transform(image).unsqueeze(0).to(device)
 
-    return get_html_content().replace("{{prediction}}", prediction.upper())
+    with torch.no_grad():
+        outputs = model(image_tensor)
+        probs = torch.softmax(outputs, dim=1)
+        conf, pred = torch.max(probs, 1)
+
+    return JSONResponse({
+        "prediction": target_to_class[pred.item()].upper(),
+        "confidence": f"{conf.item() * 100:.2f}%"
+    })
