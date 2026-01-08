@@ -86,6 +86,6 @@ Portfolio project
 
 👨‍💻 Author
 
-Musheer
+Mohd Musheer
 
 If you find this project useful, feel free to ⭐ the repository.
