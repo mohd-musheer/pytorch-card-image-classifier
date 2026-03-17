@@ -45,6 +45,7 @@ function previewFile(){
     reader.readAsDataURL(file)
 }
 
+
 async function sendPredict(){
     const file=document.getElementById("fileInput").files[0]
     if(!file) return alert("Select an image")
